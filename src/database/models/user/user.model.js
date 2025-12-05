@@ -1,52 +1,38 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      trim: true,
-      default: "User", // Default name for new users
-    },
-    mobileNumber: {
+    email: {
       type: String,
       required: true,
       unique: true,
       trim: true,
-      index: true, // Faster lookups
-    },
-    email: {
-      type: String,
-      trim: true,
       lowercase: true,
-      default: null, // Optional
+    },
+    password: {
+      type: String,
+      required: true,
     },
     role: {
       type: String,
-      enum: ["user", "admin"],
-      default: "user",
-    },
-    // OTP Fields (Hidden by default in queries)
-    otp: {
-      type: String,
-      select: false,
-    },
-    otpExpires: {
-      type: Date,
-      select: false,
+      enum: ["admin"],
+      default: "admin",
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// Method to hide sensitive data in responses
-userSchema.methods.toJSON = function () {
-  const obj = this.toObject();
-  delete obj.otp;
-  delete obj.otpExpires;
-  delete obj.__v;
-  return obj;
+// Hash Password
+userSchema.pre("save", async function (next) {
+  if (!this.isModified("password")) return next();
+  this.password = await bcrypt.hash(this.password, 12);
+  next();
+});
+
+// Compare Password
+userSchema.methods.validatePassword = async function (candidate) {
+  return bcrypt.compare(candidate, this.password);
 };
 
 export default mongoose.model("User", userSchema);

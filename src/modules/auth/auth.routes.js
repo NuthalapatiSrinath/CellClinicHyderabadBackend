@@ -1,10 +1,10 @@
 import express from "express";
-import { sendOtpController, verifyOtpController } from "./auth.controller.js";
+import { loginController, createAdminController } from "./auth.controller.js"; // Only import auth controllers
 
 const router = express.Router();
 
-// --- OTP Authentication Routes ---
-router.post("/send-otp", sendOtpController);
-router.post("/verify-otp", verifyOtpController);
+// --- Auth Routes ---
+router.post("/login", loginController);
+router.post("/create-admin", createAdminController); // Use this once to setup
 
 export default router;
