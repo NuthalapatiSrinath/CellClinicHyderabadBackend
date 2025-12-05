@@ -1,210 +1,135 @@
-// src/modules/auth/auth.controller.js
 import jwt from "jsonwebtoken";
-import crypto from "crypto";
 import User from "../../database/models/user/user.model.js";
-import { config } from "../../config/index.js"; // <-- FIXED path (from src/modules/auth)
-import sendEmail from "../../utils/email.js"; // <-- relative: src/modules/auth -> src/utils
-import { forgotPasswordEmail } from "../../utils/forgotPasswordMailPage.js";
+import { config } from "../../config/index.js";
 
+// Helper to generate JWT Token
 function signJwt(payload) {
-  // use config.jwt.* keys (access token)
   return jwt.sign(payload, config.jwt.accessSecret, {
-    expiresIn: config.jwt.accessExpires,
+    expiresIn: config.jwt.accessExpires || "7d",
   });
 }
 
-// Register
-// Register
-export const registerController = async (req, res) => {
+// --- 1. SEND OTP (Handles Login, Auto-Registration & Admin Role) ---
+export const sendOtpController = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { mobileNumber } = req.body;
 
-    if (!name || !email || !password) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing name/email/password" });
-    }
-
-    const existing = await User.findOne({ email });
-    if (existing) {
-      return res
-        .status(409)
-        .json({ success: false, message: "User already exists" });
-    }
-
-    // Accept role from client but only allow known values; default to 'user'
-    const safeRole = ["user", "admin"].includes(role) ? role : "user";
-
-    // Create user (assumes model pre-save middleware hashes password)
-    const user = await User.create({ name, email, password, role: safeRole });
-
-    // Prepare response object without any password/hash fields
-    const userObj = user.toObject ? user.toObject() : { ...user };
-    delete userObj.password;
-    delete userObj.passwordHash;
-    delete userObj.__v; // optional cleanup
-
-    return res.status(201).json({ success: true, data: userObj });
-  } catch (err) {
-    console.error("registerController error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// Login
-export const loginController = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    if (!email || !password)
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing credentials" });
-
-    const user = await User.findOne({ email }).select("+password");
-    if (!user)
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid credentials" });
-
-    const isValid = await user.validatePassword(password);
-    if (!isValid)
-      return res
-        .status(401)
-        .json({ success: false, message: "Invalid credentials" });
-
-    const token = signJwt({ sub: user._id, role: user.role });
-    return res.status(200).json({ success: true, data: user.toJSON(), token });
-  } catch (err) {
-    console.error("loginController error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// (rest of controllers — changePasswordController, forgotPasswordController, resetPasswordController)
-// keep them as you have, but ensure they also import config from "../../config/index.js"
-
-// Change password (authenticated route) - require oldPassword verify
-export const changePasswordController = async (req, res) => {
-  try {
-    const userId = req.user.sub; // from auth middleware
-    const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword)
-      return res
-        .status(400)
-        .json({ success: false, message: "Missing fields" });
-
-    const user = await User.findById(userId).select("+password");
-    if (!user)
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
-
-    const ok = await user.validatePassword(currentPassword);
-    if (!ok)
-      return res
-        .status(401)
-        .json({ success: false, message: "Current password incorrect" });
-
-    user.password = newPassword; // pre-save hook will hash
-    await user.save();
-
-    return res.status(200).json({ success: true, message: "Password changed" });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// Forgot password (request reset)
-// Forgot password (request reset) - robust version for testing
-export const forgotPasswordController = async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Email required" });
-    }
-
-    // find user
-    const user = await User.findOne({ email });
-    if (!user) {
-      // do not reveal existence
-      console.info(
-        `forgot-password requested for non-existing email: ${email}`
-      );
-      return res.status(200).json({
-        success: true,
-        message: "If account exists, password reset email will be sent",
+    // 1. Validate Input
+    if (!mobileNumber || mobileNumber.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a valid mobile number",
       });
     }
 
-    // generate token and save hashed token + expiry to DB
-    const token = user.generatePasswordReset();
-    await user.save({ validateBeforeSave: false });
+    // --- CONFIG: YOUR SPECIFIC ADMIN NUMBER ---
+    const ADMIN_MOBILE_NUMBER = "9346532339";
+    // ------------------------------------------
 
-    // For testing: print the plain token to server console (remove in prod)
-    console.info(`Password reset token for ${email}: ${token}`);
-    console.info(
-      `Hashed token saved in DB (resetPasswordToken): ${user.resetPasswordToken}`
-    );
+    // 2. Check if user exists
+    let user = await User.findOne({ mobileNumber });
 
-    // send email in background — do NOT await (so SMTP errors do not return 500)
-    setImmediate(async () => {
-      try {
-        const resetUrl = `http://192.168.8.111:3001?token=${token}`;
-        await sendEmail({
-          to: user.email,
-          subject: "Password reset",
-          text: `Reset your password: ${resetUrl}`,
-          html: forgotPasswordEmail(resetUrl, "Srinath"),
-        });
-        console.info(`Reset email queued/sent to ${user.email}`);
-      } catch (emailErr) {
-        console.error("Failed to send reset email (background):", emailErr);
+    if (!user) {
+      // CASE A: NEW USER
+      // If the number matches your admin number, set role to 'admin', else 'user'
+      const role = mobileNumber === ADMIN_MOBILE_NUMBER ? "admin" : "user";
+
+      user = await User.create({
+        mobileNumber,
+        name: "New User",
+        role: role,
+      });
+    } else {
+      // CASE B: EXISTING USER
+      // If this IS the admin number but strictly saved as 'user', upgrade them automatically
+      if (mobileNumber === ADMIN_MOBILE_NUMBER && user.role !== "admin") {
+        user.role = "admin";
+        await user.save();
       }
-    });
+    }
+
+    // 3. Generate 4-digit OTP
+    const otp = 1234;
+
+    // Set Expiry (10 Minutes)
+    const otpExpires = Date.now() + 10 * 60 * 1000;
+
+    // 4. Save OTP to DB
+    user.otp = otp;
+    user.otpExpires = otpExpires;
+    await user.save();
+
+    // TODO: Integrate SMS API here (e.g., Twilio, Fast2SMS)
+    console.log(`>>> LOGIN OTP for ${mobileNumber}: ${otp}`);
 
     return res.status(200).json({
       success: true,
-      message: "If account exists, password reset email will be sent",
+      message: "OTP sent successfully",
+      // Remove debugOtp in production
+      // debugOtp: otp
     });
   } catch (err) {
-    // log full error to server console for debugging
-    console.error("forgotPasswordController error:", err);
+    console.error("Send OTP Error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// Reset password: user clicks link -> POST new password + token
-export const resetPasswordController = async (req, res) => {
+// --- 2. VERIFY OTP ---
+export const verifyOtpController = async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
-    if (!token || !newPassword)
+    const { mobileNumber, otp } = req.body;
+
+    if (!mobileNumber || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number and OTP are required",
+      });
+    }
+
+    // Find User & Select OTP fields (hidden by default)
+    const user = await User.findOne({ mobileNumber }).select(
+      "+otp +otpExpires"
+    );
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    // Check if OTP matches
+    if (user.otp !== otp) {
+      return res.status(400).json({ success: false, message: "Invalid OTP" });
+    }
+
+    // Check if OTP is expired
+    if (user.otpExpires < Date.now()) {
       return res
         .status(400)
-        .json({ success: false, message: "Missing token or password" });
+        .json({ success: false, message: "OTP has expired" });
+    }
 
-    const user = await User.findOne({
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() },
-    }).select("+password");
-
-    if (!user)
-      return res
-        .status(400)
-        .json({ success: false, message: "Token invalid or expired" });
-
-    user.password = newPassword; // pre-save will hash
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
+    // Clear OTP after successful verification
+    user.otp = undefined;
+    user.otpExpires = undefined;
     await user.save();
 
-    return res
-      .status(200)
-      .json({ success: true, message: "Password reset success" });
+    // Generate Access Token (Payload includes Role)
+    const token = signJwt({ sub: user._id, role: user.role });
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
+      data: {
+        _id: user._id,
+        name: user.name,
+        mobileNumber: user.mobileNumber,
+        role: user.role, // This will be 'admin' for your specific number
+      },
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Verify OTP Error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 };
