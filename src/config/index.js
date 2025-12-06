@@ -51,10 +51,11 @@ export const config = {
   email: {
     host: "smtp.gmail.com",
     port: Number(process.env.EMAIL_PORT || 587),
-    user: "devakarthik8899@gmail.com",
-    pass: "emse yvcn clnh xqqv",
 
-    // Default "from" address
+    // UPDATE THESE LINES TO USE process.env
+    user: process.env.EMAIL_USER || "devakarthik8899@gmail.com",
+    pass: process.env.EMAIL_PASS || "emse yvcn clnh xqqv",
+
     from: "devakarthik8899@gmail.com",
   },
 
