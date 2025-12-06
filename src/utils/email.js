@@ -3,20 +3,25 @@ import nodemailer from "nodemailer";
 import { config } from "../config/index.js";
 
 const createTransporter = () => {
-  const { email } = config;
-
   return nodemailer.createTransport({
-    service: "gmail",
+    host: "smtp.gmail.com", // Explicitly set Gmail host
+    port: 465, // Use Port 465 (Secure SSL) instead of 587
+    secure: true, // Must be true for port 465
     auth: {
-      user: "devakarthik8899@gmail.com",
-      pass: "yqbf oewv ahye rssq",
+      user: config.email.user,
+      pass: config.email.pass,
     },
+    // This helps prevent hanging connections
+    connectionTimeout: 10000,
   });
 };
 
 const sendEmail = async ({ to, subject, text, html }) => {
   try {
     const transporter = createTransporter();
+
+    // Verify connection before sending (Optional debugging step)
+    await transporter.verify();
 
     const mailOptions = {
       from: config.email.from,
