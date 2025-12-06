@@ -4,24 +4,30 @@ import { config } from "../config/index.js";
 
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: "smtp.gmail.com", // Explicitly set Gmail host
-    port: 465, // Use Port 465 (Secure SSL) instead of 587
-    secure: true, // Must be true for port 465
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true, // true for 465, false for other ports
     auth: {
       user: config.email.user,
       pass: config.email.pass,
     },
-    // This helps prevent hanging connections
-    connectionTimeout: 10000,
+    // -------------------------------------------
+    // THE FIX: Force IPv4 to prevent timeouts
+    // -------------------------------------------
+    family: 4,
+    logger: true, // Log connection details for debugging
+    debug: true, // Include debug info
   });
 };
 
 const sendEmail = async ({ to, subject, text, html }) => {
   try {
+    console.log(`Attempting to email ${to} via ${config.email.user}...`);
     const transporter = createTransporter();
 
-    // Verify connection before sending (Optional debugging step)
+    // Verify connection configuration
     await transporter.verify();
+    console.log("✅ SMTP Connection Verified");
 
     const mailOptions = {
       from: config.email.from,
@@ -32,10 +38,11 @@ const sendEmail = async ({ to, subject, text, html }) => {
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`📧 Email sent to ${to}`);
+    console.log(`📧 Email successfully sent to ${to}`);
   } catch (error) {
-    console.error("Email send error:", error);
-    throw new Error("Failed to send email");
+    console.error("❌ Email Failed:");
+    console.error(error);
+    throw new Error(`Email Error: ${error.message}`);
   }
 };
 
