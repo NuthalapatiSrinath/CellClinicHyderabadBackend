@@ -2,13 +2,12 @@ import mongoose from "mongoose";
 
 const serviceSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true, trim: true }, // e.g., "Screen Replacement"
-    description: { type: String }, // e.g., "Glass + Display replacement"
-    price: { type: Number, required: true },
-    originalPrice: { type: Number }, // For showing discounts
-    discount: { type: String }, // e.g., "30% OFF"
+    title: { type: String, required: true, trim: true },
+    description: { type: String }, // <--- New field for details
+    price: { type: Number, required: true, default: 0 },
+    originalPrice: { type: Number },
+    discount: { type: String },
 
-    // Link to a specific device
     device: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Device",

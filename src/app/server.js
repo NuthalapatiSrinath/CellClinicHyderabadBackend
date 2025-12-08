@@ -1,19 +1,33 @@
 import express from "express";
 import cors from "cors";
-import axios from "axios"; // <-- added for keep-alive
+import axios from "axios";
+import path from "path";
+import { fileURLToPath } from "url";
 import { connectDB } from "./../database/index.js";
 import { config } from "./../config/index.js";
 import routes from "./routes.js";
 
+// --- Fix for __dirname in ES Modules ---
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
+
+// 1. Middleware
 app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json());
 
-// Root health check (optional but useful)
+// 2. Serve Static Files (Crucial for Local Image Uploads)
+// This makes the "public" folder accessible from the browser
+// Example: http://localhost:4000/public/uploads/my-image.png
+app.use("/public", express.static(path.join(__dirname, "../../public")));
+
+// 3. Root health check
 app.get("/", (req, res) => {
   res.json({ status: "ok" });
 });
 
+// 4. API Routes
 app.use("/api", routes);
 
 async function start() {
@@ -27,7 +41,8 @@ async function start() {
     // -------------------------------
     // KEEP RENDER INSTANCE ALIVE
     // -------------------------------
-    const KEEP_ALIVE_URL = "https://cellclinichyderabadbacken.onrender.com/";
+    // Note: I added the 'd' to 'backend'. Check if your Render URL is actually 'backen' or 'backend'.
+    const KEEP_ALIVE_URL = "https://cellclinichyderabadbackend.onrender.com/";
 
     setInterval(async () => {
       try {

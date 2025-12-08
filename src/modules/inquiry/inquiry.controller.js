@@ -82,3 +82,53 @@ export const getAllInquiries = async (req, res) => {
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 };
+
+export const updateInquiry = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updatedInquiry = await Inquiry.findByIdAndUpdate(
+      id,
+      req.body,
+      { new: true } // Return updated doc
+    );
+
+    if (!updatedInquiry) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Order not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Order updated successfully",
+      data: updatedInquiry,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// --- 4. Delete Single Inquiry ---
+export const deleteInquiry = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Inquiry.findByIdAndDelete(id);
+    return res
+      .status(200)
+      .json({ success: true, message: "Order deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// --- 5. Delete All Inquiries ---
+export const deleteAllInquiries = async (req, res) => {
+  try {
+    await Inquiry.deleteMany({});
+    return res
+      .status(200)
+      .json({ success: true, message: "All orders deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
