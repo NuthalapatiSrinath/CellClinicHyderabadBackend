@@ -1,9 +1,11 @@
 import express from "express";
-import { exportAllData } from "./backup.controller.js";
+import multer from "multer";
+import { exportAllData, restoreData } from "./backup.controller.js";
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() }); // Store ZIP in RAM
 
-// GET /api/backup/download
 router.get("/download", exportAllData);
+router.post("/restore", upload.single("file"), restoreData); // <--- NEW ROUTE
 
 export default router;
