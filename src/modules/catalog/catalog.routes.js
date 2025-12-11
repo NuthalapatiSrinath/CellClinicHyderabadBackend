@@ -1,5 +1,7 @@
 import express from "express";
 import multer from "multer";
+import { storage as cloudinaryStorage } from "../../config/cloudinary.js"; //
+
 import {
   getBrands,
   getDevicesByBrand,
@@ -19,12 +21,14 @@ import {
 
 const router = express.Router();
 
-// MEMORY STORAGE (Crucial for Vercel & Base64)
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage: storage,
+// 1. FOR IMAGES: Use Cloudinary (Fixes the size limit)
+const uploadImage = multer({ storage: cloudinaryStorage });
+
+// 2. FOR EXCEL: Keep Memory Storage (Required for parsing)
+const uploadExcel = multer({
+  storage: multer.memoryStorage(),
   limits: { fileSize: 4 * 1024 * 1024 },
-}); // 4MB
+});
 
 // --- PUBLIC ---
 router.get("/brands", getBrands);
@@ -32,14 +36,14 @@ router.get("/devices/:brandId", getDevicesByBrand);
 router.get("/services/:deviceId", getServicesByDevice);
 
 // --- ADMIN (BRANDS) ---
-router.post("/brand", upload.single("image"), createBrand);
-router.put("/brand/:id", upload.single("image"), updateBrand);
+router.post("/brand", uploadImage.single("image"), createBrand); // Changed to uploadImage
+router.put("/brand/:id", uploadImage.single("image"), updateBrand); // Changed to uploadImage
 router.delete("/brand/:id", deleteBrand);
-router.post("/brand/:id/upload", upload.single("file"), uploadBrandExcel); // Brand Specific Excel
+router.post("/brand/:id/upload", uploadExcel.single("file"), uploadBrandExcel); // Keep uploadExcel
 
 // --- ADMIN (DEVICES) ---
-router.post("/device", upload.single("image"), createDevice);
-router.put("/device/:id", upload.single("image"), updateDevice);
+router.post("/device", uploadImage.single("image"), createDevice); // Changed to uploadImage
+router.put("/device/:id", uploadImage.single("image"), updateDevice); // Changed to uploadImage
 router.delete("/device/:id", deleteDevice);
 
 // --- ADMIN (SERVICES) ---
@@ -48,6 +52,6 @@ router.put("/service/:id", express.json(), updateService);
 router.delete("/service/:id", deleteService);
 
 // --- ADMIN (GLOBAL EXCEL) ---
-router.post("/upload", upload.single("file"), bulkUploadExcel);
+router.post("/upload", uploadExcel.single("file"), bulkUploadExcel); // Keep uploadExcel
 
 export default router;

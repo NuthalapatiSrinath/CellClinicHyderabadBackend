@@ -94,7 +94,14 @@ export const deleteBrand = async (req, res) => {
 export const createDevice = async (req, res) => {
   try {
     let imageUrl = req.body.image;
-    if (req.file) imageUrl = bufferToBase64(req.file.mimetype, req.file.buffer);
+
+    // --- CHANGE ONLY THIS BLOCK ---
+    if (req.file) {
+      // OLD: imageUrl = bufferToBase64(req.file.mimetype, req.file.buffer);
+      // NEW: Cloudinary automatically puts the URL in 'path'
+      imageUrl = req.file.path;
+    }
+    // -----------------------------
 
     const device = await Device.create({ ...req.body, image: imageUrl });
     res.status(201).json({ success: true, data: device });
@@ -107,7 +114,14 @@ export const updateDevice = async (req, res) => {
   try {
     const { id } = req.params;
     let imageUrl = req.body.image;
-    if (req.file) imageUrl = bufferToBase64(req.file.mimetype, req.file.buffer);
+
+    // --- CHANGE ONLY THIS BLOCK ---
+    if (req.file) {
+      // OLD: imageUrl = bufferToBase64(req.file.mimetype, req.file.buffer);
+      // NEW:
+      imageUrl = req.file.path;
+    }
+    // -----------------------------
 
     const updatedDevice = await Device.findByIdAndUpdate(
       id,
