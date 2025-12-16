@@ -345,16 +345,19 @@ export const exportBrandEditableExcel = async (req, res) => {
 };
 
 // --- Helper Function for Editable Logic ---
+// ... (imports and other functions remain the same)
+
+// --- Helper Function for Editable Logic ---
 function buildEditableRows(brands, devices, services) {
   const rows = [];
 
   for (const brand of brands) {
+    // FIX: Add optional chaining ?.toString() to prevent crash if d.brand is missing
     const brandDevices = devices.filter(
-      (d) => d.brand.toString() === brand._id.toString()
+      (d) => d.brand?.toString() === brand._id.toString()
     );
 
     if (brandDevices.length === 0) {
-      // Brand only
       rows.push({
         Brand_Name: brand.name,
         Brand_Image: brand.image,
@@ -367,12 +370,12 @@ function buildEditableRows(brands, devices, services) {
     }
 
     for (const device of brandDevices) {
+      // FIX: Add optional chaining ?.toString() here too
       const deviceServices = services.filter(
-        (s) => s.device.toString() === device._id.toString()
+        (s) => s.device?.toString() === device._id.toString()
       );
 
       if (deviceServices.length === 0) {
-        // Brand + Device only
         rows.push({
           Brand_Name: brand.name,
           Brand_Image: brand.image,
@@ -387,7 +390,6 @@ function buildEditableRows(brands, devices, services) {
         continue;
       }
 
-      // Brand + Device + Service
       for (const service of deviceServices) {
         rows.push({
           Brand_Name: brand.name,
