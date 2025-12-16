@@ -49,7 +49,10 @@ export const getServicesByDevice = async (req, res) => {
 export const createBrand = async (req, res) => {
   try {
     let imageUrl = req.body.image;
-    if (req.file) imageUrl = bufferToBase64(req.file.mimetype, req.file.buffer);
+    // NEW (Fixed)
+    if (req.file) {
+      imageUrl = req.file.path;
+    }
 
     if (!req.body.name || !imageUrl) {
       return res.status(400).json({ message: "Name and Image are required" });
@@ -62,11 +65,18 @@ export const createBrand = async (req, res) => {
   }
 };
 
+// File: src/modules/catalog/catalog.controller.js
+
 export const updateBrand = async (req, res) => {
   try {
     const { id } = req.params;
     let imageUrl = req.body.image;
-    if (req.file) imageUrl = bufferToBase64(req.file.mimetype, req.file.buffer);
+
+    // --- FIX: Use req.file.path (Cloudinary URL) ---
+    if (req.file) {
+      imageUrl = req.file.path;
+    }
+    // -----------------------------------------------
 
     const updatedBrand = await Brand.findByIdAndUpdate(
       id,
@@ -75,6 +85,8 @@ export const updateBrand = async (req, res) => {
     );
     res.status(200).json({ success: true, data: updatedBrand });
   } catch (err) {
+    // This catches the error and sends it to the frontend
+    console.error("Update Brand Error:", err);
     res.status(500).json({ message: err.message });
   }
 };

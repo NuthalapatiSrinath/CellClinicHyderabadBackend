@@ -16,7 +16,7 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: "cell-clinic-uploads", // Folder name in Cloudinary
-    allowed_formats: ["jpg", "png", "jpeg", "webp"],
+    allowed_formats: ["jpg", "png", "jpeg", "webp", "avif", "heic"],
   },
 });
 
