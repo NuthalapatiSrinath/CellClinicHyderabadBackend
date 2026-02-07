@@ -24,7 +24,9 @@ export const getBrands = async (req, res) => {
 export const getDevicesByBrand = async (req, res) => {
   try {
     const { brandId } = req.params;
-    const devices = await Device.find({ brand: brandId, isActive: true });
+    // Sort by _id descending to show newest devices first
+    // This preserves Excel upload order within each batch
+    const devices = await Device.find({ brand: brandId, isActive: true }).sort({ _id: -1 });
     res.status(200).json({ success: true, data: devices });
   } catch (err) {
     res.status(500).json({ message: err.message });
