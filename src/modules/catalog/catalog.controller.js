@@ -43,6 +43,94 @@ export const getServicesByDevice = async (req, res) => {
   }
 };
 
+// Global Search API
+export const searchCatalog = async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query) return res.status(200).json({ success: true, data: [] });
+
+    const regex = new RegExp(query, "i");
+
+    // 1. Search Brands
+    const brands = await Brand.find({ name: regex, isActive: true }).limit(5);
+
+    // 2. Search Devices (Smart Search: Brand + Model)
+    // We use aggregation to join brand name so we can search "Apple iPhone"
+    const devices = await Device.aggregate([
+      {
+        $lookup: {
+          from: "brands", // Collection name is usually lowercase plural
+          localField: "brand",
+          foreignField: "_id",
+          as: "brandInfo",
+        },
+      },
+      { $unwind: "$brandInfo" },
+      {
+        $addFields: {
+          fullName: {
+            $cond: {
+              if: {
+                $eq: [
+                  {
+                    $indexOfCP: [
+                      { $toLower: "$name" },
+                      { $toLower: "$brandInfo.name" },
+                    ],
+                  },
+                  0,
+                ],
+              },
+              then: "$name",
+              else: { $concat: ["$brandInfo.name", " ", "$name"] },
+            },
+          },
+        },
+      },
+      {
+        $match: {
+          isActive: true,
+          $or: [{ name: regex }, { fullName: regex }],
+        },
+      },
+      { $limit: 10 },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          image: 1,
+          fullName: 1,
+          brandName: "$brandInfo.name",
+        },
+      },
+    ]);
+
+    const results = [
+      ...brands.map((b) => ({
+        type: "brand",
+        id: b._id,
+        name: b.name,
+        fullName: b.name,
+        image: b.image,
+        brandName: b.name,
+      })),
+      ...devices.map((d) => ({
+        type: "device",
+        id: d._id,
+        name: d.name,
+        fullName: d.fullName,
+        image: d.image,
+        brandName: d.brandName,
+      })),
+    ];
+
+    res.status(200).json({ success: true, data: results });
+  } catch (err) {
+    console.error("Search API Error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // ==========================================
 // 2. ADMIN WRITE APIs (MANUAL)
 // ==========================================

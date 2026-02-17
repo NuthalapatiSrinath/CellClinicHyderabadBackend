@@ -17,6 +17,7 @@ import {
   deleteService,
   bulkUploadExcel,
   uploadBrandExcel,
+  searchCatalog,
 } from "./catalog.controller.js";
 
 const router = express.Router();
@@ -34,6 +35,7 @@ const uploadExcel = multer({
 router.get("/brands", getBrands);
 router.get("/devices/:brandId", getDevicesByBrand);
 router.get("/services/:deviceId", getServicesByDevice);
+router.get("/search", searchCatalog);
 
 // --- ADMIN (BRANDS) ---
 router.post("/brand", uploadImage.single("image"), createBrand); // Changed to uploadImage
